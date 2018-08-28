@@ -380,6 +380,7 @@ func vipsPreSave(image *C.VipsImage, o *vipsSaveOptions) (*C.VipsImage, error) {
 		if int(err) != 0 {
 			return nil, catchVipsError()
 		}
+		C.g_object_unref(C.gpointer(image))
 		image = outImage
 	}
 
@@ -388,6 +389,20 @@ func vipsPreSave(image *C.VipsImage, o *vipsSaveOptions) (*C.VipsImage, error) {
 		defer C.free(unsafe.Pointer(outputIccPath))
 
 		err := C.vips_icc_transform_bridge(image, &outImage, outputIccPath)
+		if int(err) != 0 {
+			return nil, catchVipsError()
+		}
+		C.g_object_unref(C.gpointer(image))
+		image = outImage
+	}
+
+	if vipsSpace(image) == "cmyk" && !vipsHasProfile(image) {
+		outputIccPath := C.CString("/tmp/sRGB.icc")
+		inputIccPath := C.CString("/tmp/cmyk.icm")
+		defer C.free(unsafe.Pointer(outputIccPath))
+		defer C.free(unsafe.Pointer(inputIccPath))
+
+		err := C.vips_icc_transform_with_default_bridge(image, &outImage, outputIccPath, inputIccPath)
 		if int(err) != 0 {
 			return nil, catchVipsError()
 		}
@@ -412,7 +427,7 @@ func vipsSave(image *C.VipsImage, o vipsSaveOptions) ([]byte, error) {
 	// original image a second time; we may otherwise erroneously
 	// free the object twice.
 	if tmpImage != image {
-		defer C.g_object_unref(C.gpointer(tmpImage))
+		//defer C.g_object_unref(C.gpointer(tmpImage))
 	}
 
 	length := C.size_t(0)

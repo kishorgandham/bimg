@@ -275,6 +275,12 @@ vips_icc_transform_bridge (VipsImage *in, VipsImage **out, const char *output_ic
 }
 
 int
+vips_icc_transform_with_default_bridge (VipsImage *in, VipsImage **out, const char *output_icc_profile, const char *input_icc_profile) {
+	// `output_icc_profile` represents the absolute path to the output ICC profile file
+	return vips_icc_transform(in, out, output_icc_profile, "embedded", TRUE, "input_profile", input_icc_profile, NULL);
+}
+
+int
 vips_jpegsave_bridge(VipsImage *in, void **buf, size_t *len, int strip, int quality, int interlace) {
 	return vips_jpegsave_buffer(in, buf, len,
 		"strip", INT_TO_GBOOLEAN(strip),

@@ -179,7 +179,7 @@ vips_type_find_save_bridge(int t) {
 int
 vips_rotate(VipsImage *in, VipsImage **out, double dangle) {
 	int rotate = VIPS_ANGLE_D0;
-	int ange = dangle;
+	int angle = dangle;
 	angle %= 360;
 
 	if (angle == 45) {

@@ -67,7 +67,11 @@ func resizer(buf []byte, o Options) ([]byte, error) {
 	}
 
 	// Try to use libjpeg/libwebp shrink-on-load
-	supportsShrinkOnLoad := imageType == WEBP && VipsMajorVersion >= 8 && VipsMinorVersion >= 3
+
+	//kishor: shrink on load was causing a problem for webp images. Hence disabling it.
+	//related issue for jpegs that seems to have been fixed: https://github.com/lovell/sharp/issues/1185
+	//supportsShrinkOnLoad := imageType == WEBP && VipsMajorVersion >= 8 && VipsMinorVersion >= 3
+	supportsShrinkOnLoad := false
 	supportsShrinkOnLoad = supportsShrinkOnLoad || imageType == JPEG
 	if supportsShrinkOnLoad && shrink >= 2 {
 		tmpImage, factor, err := shrinkOnLoad(buf, image, imageType, factor, shrink)

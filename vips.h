@@ -318,11 +318,11 @@ vips_icc_transform_with_default_bridge (VipsImage *in, VipsImage **out, const ch
 	return vips_icc_transform(in, out, output_icc_profile, "input_profile", input_icc_profile, "embedded", FALSE, NULL);
 }
 
-int
-vips_icc_transform_with_default_bridge (VipsImage *in, VipsImage **out, const char *output_icc_profile, const char *input_icc_profile) {
-	// `output_icc_profile` represents the absolute path to the output ICC profile file
-	return vips_icc_transform(in, out, output_icc_profile, "embedded", TRUE, "input_profile", input_icc_profile, NULL);
-}
+// int
+// vips_icc_transform_with_default_bridge (VipsImage *in, VipsImage **out, const char *output_icc_profile, const char *input_icc_profile) {
+// 	// `output_icc_profile` represents the absolute path to the output ICC profile file
+// 	return vips_icc_transform(in, out, output_icc_profile, "embedded", TRUE, "input_profile", input_icc_profile, NULL);
+// }
 
 int
 vips_jpegsave_bridge(VipsImage *in, void **buf, size_t *len, int strip, int quality, int interlace) {

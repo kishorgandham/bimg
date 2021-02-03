@@ -6,6 +6,9 @@ import (
 	"unicode/utf8"
 )
 
+// ImageType represents an image type value.
+type ImageType int
+
 const (
 	// UNKNOWN represents an unknow image type value.
 	UNKNOWN ImageType = iota
@@ -25,10 +28,11 @@ const (
 	SVG
 	// MAGICK represents the libmagick compatible genetic image type.
 	MAGICK
+	// HEIF represents the HEIC/HEIF/HVEC image type
+	HEIF
+	// AVIF represents the AVIF image type.
+	AVIF
 )
-
-// ImageType represents an image type value.
-type ImageType int
 
 var (
 	htmlCommentRegex = regexp.MustCompile("(?i)<!--([\\s\\S]*?)-->")
@@ -45,6 +49,8 @@ var ImageTypes = map[ImageType]string{
 	PDF:    "pdf",
 	SVG:    "svg",
 	MAGICK: "magick",
+	HEIF:   "heif",
+	AVIF:   "avif",
 }
 
 // imageMutex is used to provide thread-safe synchronization

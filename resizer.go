@@ -12,6 +12,11 @@ import (
 	"math"
 )
 
+var (
+	// ErrExtractAreaParamsRequired defines a generic extract area error
+	ErrExtractAreaParamsRequired = errors.New("extract area width/height params are required")
+)
+
 // resizer is used to transform a given image as byte buffer
 // with the passed options.
 func resizer(buf []byte, o Options) ([]byte, error) {
@@ -25,8 +30,18 @@ func resizer(buf []byte, o Options) ([]byte, error) {
 	// Clone and define default options
 	o = applyDefaults(o, imageType)
 
-	if !IsTypeSupported(o.Type) {
+	// Ensure supported type
+	if !IsTypeSupportedSave(o.Type) {
 		return nil, errors.New("Unsupported image output type")
+	}
+
+	// Autorate only
+	if o.autoRotateOnly {
+		image, err = vipsAutoRotate(image)
+		if err != nil {
+			return nil, err
+		}
+		return saveImage(image, o)
 	}
 
 	// Auto rotate image based on EXIF orientation header
@@ -35,8 +50,8 @@ func resizer(buf []byte, o Options) ([]byte, error) {
 		return nil, err
 	}
 
-	// If JPEG image, retrieve the buffer
-	if rotated && imageType == JPEG && !o.NoAutoRotate {
+	// If JPEG or HEIF image, retrieve the buffer
+	if rotated && (imageType == JPEG || imageType == HEIF || imageType == AVIF) && !o.NoAutoRotate {
 		buf, err = getImageBuffer(image)
 		if err != nil {
 			return nil, err
@@ -125,6 +140,12 @@ func resizer(buf []byte, o Options) ([]byte, error) {
 		return nil, err
 	}
 
+	// Apply Gamma filter, if necessary
+	image, err = applyGamma(image, o)
+	if err != nil {
+		return nil, err
+	}
+
 	return saveImage(image, o)
 }
 
@@ -165,9 +186,12 @@ func saveImage(image *C.VipsImage, o Options) ([]byte, error) {
 		Interlace:      o.Interlace,
 		NoProfile:      o.NoProfile,
 		Interpretation: o.Interpretation,
+		InputICC:       o.InputICC,
 		OutputICC:      o.OutputICC,
 		StripMetadata:  o.StripMetadata,
 		Lossless:       o.Lossless,
+		Palette:        o.Palette,
+		Speed:          o.Speed,
 	}
 	// Finally get the resultant buffer
 	return vipsSave(image, saveOptions)
@@ -209,7 +233,7 @@ func transformImage(image *C.VipsImage, o Options, shrink int, residual float64)
 		if residualx < 1 && residualy < 1 {
 			image, err = vipsReduce(image, 1/residualx, 1/residualy)
 		} else {
-			image, err = vipsAffine(image, residualx, residualy, o.Interpolator)
+			image, err = vipsAffine(image, residualx, residualy, o.Interpolator, o.Extend)
 		}
 		if err != nil {
 			return nil, err
@@ -256,9 +280,19 @@ func extractOrEmbedImage(image *C.VipsImage, o Options) (*C.VipsImage, error) {
 
 	switch {
 	case o.Gravity == GravitySmart, o.SmartCrop:
-		image, err = vipsSmartCrop(image, o.Width, o.Height)
+		// it's already at an appropriate size, return immediately
+		if inWidth <= o.Width && inHeight <= o.Height {
+			break
+		}
+		width := int(math.Min(float64(inWidth), float64(o.Width)))
+		height := int(math.Min(float64(inHeight), float64(o.Height)))
+		image, err = vipsSmartCrop(image, width, height)
 		break
 	case o.Crop:
+		// it's already at an appropriate size, return immediately
+		if inWidth <= o.Width && inHeight <= o.Height {
+			break
+		}
 		width := int(math.Min(float64(inWidth), float64(o.Width)))
 		height := int(math.Min(float64(inHeight), float64(o.Height)))
 		left, top := calculateCrop(inWidth, inHeight, o.Width, o.Height, o.Gravity)
@@ -295,7 +329,6 @@ func extractOrEmbedImage(image *C.VipsImage, o Options) (*C.VipsImage, error) {
 func rotateAndFlipImage(image *C.VipsImage, o Options) (*C.VipsImage, bool, error) {
 	var err error
 	var rotated bool
-	var direction Direction = -1
 
 	if o.NoAutoRotate == false {
 		rotation, flip := calculateRotationAndFlip(image, o.Rotate)
@@ -313,16 +346,14 @@ func rotateAndFlipImage(image *C.VipsImage, o Options) (*C.VipsImage, bool, erro
 	}
 
 	if o.Flip {
-		direction = Horizontal
-	} else if o.Flop {
-		direction = Vertical
-	}
-
-	if direction != -1 {
 		rotated = true
-		image, err = vipsFlip(image, direction)
+		image, err = vipsFlip(image, Horizontal)
 	}
 
+	if o.Flop {
+		rotated = true
+		image, err = vipsFlip(image, Vertical)
+	}
 	return image, rotated, err
 }
 
@@ -359,7 +390,6 @@ func watermarkImageWithText(image *C.VipsImage, w Watermark) (*C.VipsImage, erro
 }
 
 func watermarkImageWithAnotherImage(image *C.VipsImage, w WatermarkImage) (*C.VipsImage, error) {
-
 	if len(w.Buf) == 0 {
 		return image, nil
 	}
@@ -378,11 +408,21 @@ func watermarkImageWithAnotherImage(image *C.VipsImage, w WatermarkImage) (*C.Vi
 }
 
 func imageFlatten(image *C.VipsImage, imageType ImageType, o Options) (*C.VipsImage, error) {
-	// Only PNG images are supported for now
-	if imageType != PNG || o.Background == ColorBlack {
+	if o.Background == ColorBlack {
 		return image, nil
 	}
 	return vipsFlattenBackground(image, o.Background)
+}
+
+func applyGamma(image *C.VipsImage, o Options) (*C.VipsImage, error) {
+	var err error
+	if o.Gamma > 0 {
+		image, err = vipsGamma(image, o.Gamma)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return image, nil
 }
 
 func zoomImage(image *C.VipsImage, zoom int) (*C.VipsImage, error) {

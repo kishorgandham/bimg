@@ -149,6 +149,17 @@ func VipsCacheDropAll() {
 	C.vips_cache_drop_all()
 }
 
+// VipsVectorSetEnabled enables or disables SIMD vector instructions. This can give speed-up,
+// but can also be unstable on some systems and versions.
+func VipsVectorSetEnabled(enable bool) {
+	flag := 0
+	if enable {
+		flag = 1
+	}
+
+	C.vips_vector_set_enabled(C.int(flag))
+}
+
 // VipsDebugInfo outputs to stdout libvips collected data. Useful for debugging.
 func VipsDebugInfo() {
 	C.im__print_all()
@@ -237,8 +248,9 @@ func vipsExifOrientation(image *C.VipsImage) int {
 }
 
 func vipsExifShort(s string) string {
-	if strings.Contains(s, " (") {
-		return s[:strings.Index(s, "(")-1]
+	i := strings.Index(s, " (")
+	if i > 0 {
+		return s[:i]
 	}
 	return s
 }
@@ -390,8 +402,9 @@ func vipsInterpretationBuffer(buf []byte) (Interpretation, error) {
 	if err != nil {
 		return InterpretationError, err
 	}
+	interp := vipsInterpretation(image)
 	C.g_object_unref(C.gpointer(image))
-	return vipsInterpretation(image), nil
+	return interp, nil
 }
 
 func vipsInterpretation(image *C.VipsImage) Interpretation {

@@ -232,6 +232,9 @@ func VipsIsTypeSupportedSave(t ImageType) bool {
 	if t == AVIF {
 		return int(C.vips_type_find_save_bridge(C.HEIF)) != 0
 	}
+	if t == GIF {
+		return int(C.vips_type_find_save_bridge(C.GIF)) != 0
+	}
 	return false
 }
 
@@ -532,13 +535,15 @@ func vipsSave(image *C.VipsImage, o vipsSaveOptions) ([]byte, error) {
 	case WEBP:
 		saveErr = C.vips_webpsave_bridge(tmpImage, &ptr, &length, strip, quality, lossless)
 	case PNG:
-		saveErr = C.vips_pngsave_bridge(tmpImage, &ptr, &length, strip, C.int(o.Compression), quality, interlace, palette)
+		saveErr = C.vips_pngsave_bridge(tmpImage, &ptr, &length, strip, C.int(o.Compression), quality, interlace, palette, speed)
 	case TIFF:
 		saveErr = C.vips_tiffsave_bridge(tmpImage, &ptr, &length)
 	case HEIF:
 		saveErr = C.vips_heifsave_bridge(tmpImage, &ptr, &length, strip, quality, lossless)
 	case AVIF:
 		saveErr = C.vips_avifsave_bridge(tmpImage, &ptr, &length, strip, quality, lossless, speed)
+	case GIF:
+		saveErr = C.vips_gifsave_bridge(tmpImage, &ptr, &length, strip)
 	default:
 		saveErr = C.vips_jpegsave_bridge(tmpImage, &ptr, &length, strip, quality, interlace)
 	}
@@ -579,7 +584,7 @@ func vipsExtract(image *C.VipsImage, left, top, width, height int) (*C.VipsImage
 	var buf *C.VipsImage
 	defer C.g_object_unref(C.gpointer(image))
 
-	if width > MaxSize || height > MaxSize {
+	if width > maxSize || height > maxSize {
 		return nil, errors.New("Maximum image size exceeded")
 	}
 
@@ -596,7 +601,7 @@ func vipsSmartCrop(image *C.VipsImage, width, height int) (*C.VipsImage, error) 
 	var buf *C.VipsImage
 	defer C.g_object_unref(C.gpointer(image))
 
-	if width > MaxSize || height > MaxSize {
+	if width > maxSize || height > maxSize {
 		return nil, errors.New("Maximum image size exceeded")
 	}
 
@@ -852,6 +857,28 @@ func vipsGamma(image *C.VipsImage, Gamma float64) (*C.VipsImage, error) {
 	defer C.g_object_unref(C.gpointer(image))
 
 	err := C.vips_gamma_bridge(image, &out, C.double(Gamma))
+	if err != 0 {
+		return nil, catchVipsError()
+	}
+	return out, nil
+}
+
+func vipsBrightness(image *C.VipsImage, brightness float64) (*C.VipsImage, error) {
+	var out *C.VipsImage
+	defer C.g_object_unref(C.gpointer(image))
+
+	err := C.vips_brightness_bridge(image, &out, C.double(brightness))
+	if err != 0 {
+		return nil, catchVipsError()
+	}
+	return out, nil
+}
+
+func vipsContrast(image *C.VipsImage, contrast float64) (*C.VipsImage, error) {
+	var out *C.VipsImage
+	defer C.g_object_unref(C.gpointer(image))
+
+	err := C.vips_contrast_bridge(image, &out, C.double(contrast))
 	if err != 0 {
 		return nil, catchVipsError()
 	}

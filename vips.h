@@ -186,6 +186,11 @@ vips_type_find_save_bridge(int t) {
 		return vips_type_find("VipsOperation", "heifsave_buffer");
 	}
 #endif
+#if (VIPS_MAJOR_VERSION > 8 || (VIPS_MAJOR_VERSION == 8 && VIPS_MINOR_VERSION >= 12))
+	if (t == GIF) {
+		return vips_type_find("VipsOperation", "gifsave_buffer");
+	}
+#endif
 	return 0;
 }
 
@@ -337,8 +342,20 @@ vips_jpegsave_bridge(VipsImage *in, void **buf, size_t *len, int strip, int qual
 }
 
 int
-vips_pngsave_bridge(VipsImage *in, void **buf, size_t *len, int strip, int compression, int quality, int interlace, int palette) {
-#if (VIPS_MAJOR_VERSION >= 8 && VIPS_MINOR_VERSION >= 7)
+vips_pngsave_bridge(VipsImage *in, void **buf, size_t *len, int strip, int compression, int quality, int interlace, int palette, int speed) {
+#if (VIPS_MAJOR_VERSION >= 8 && VIPS_MINOR_VERSION >= 12)
+	int effort = 10 - speed;
+	return vips_pngsave_buffer(in, buf, len,
+		"strip", INT_TO_GBOOLEAN(strip),
+		"compression", compression,
+		"interlace", INT_TO_GBOOLEAN(interlace),
+		"filter", VIPS_FOREIGN_PNG_FILTER_ALL,
+		"palette", INT_TO_GBOOLEAN(palette),
+		"Q", quality,
+		"effort", effort,
+		NULL
+	);
+#elif (VIPS_MAJOR_VERSION >= 8 && VIPS_MINOR_VERSION >= 7)
 	return vips_pngsave_buffer(in, buf, len,
 		"strip", INT_TO_GBOOLEAN(strip),
 		"compression", compression,
@@ -407,6 +424,18 @@ vips_heifsave_bridge(VipsImage *in, void **buf, size_t *len, int strip, int qual
 		"strip", INT_TO_GBOOLEAN(strip),
 		"Q", quality,
 		"lossless", INT_TO_GBOOLEAN(lossless),
+		NULL
+	);
+#else
+	return 0;
+#endif
+}
+
+int
+vips_gifsave_bridge(VipsImage *in, void **buf, size_t *len, int strip) {
+#if (VIPS_MAJOR_VERSION > 8 || (VIPS_MAJOR_VERSION == 8 && VIPS_MINOR_VERSION >= 12))
+	return vips_gifsave_buffer(in, buf, len, 
+		"strip", INT_TO_GBOOLEAN(strip),
 		NULL
 	);
 #else
@@ -663,4 +692,14 @@ int vips_find_trim_bridge(VipsImage *in, int *top, int *left, int *width, int *h
 int vips_gamma_bridge(VipsImage *in, VipsImage **out, double exponent)
 {
   return vips_gamma(in, out, "exponent", 1.0 / exponent, NULL);
+}
+
+int vips_brightness_bridge(VipsImage *in, VipsImage **out, double k)
+{
+    return vips_linear1(in, out, 1.0 , k, NULL);
+}
+
+int vips_contrast_bridge(VipsImage *in, VipsImage **out, double k)
+{
+    return vips_linear1(in, out, k , 0.0, NULL);
 }
